@@ -1,0 +1,97 @@
+# VehicleTrack Pro API
+
+Express, TypeScript, and MongoDB API. This directory is a standalone repository for deploying the API to Render.
+
+## Run locally
+
+Requirements: Node.js 20 or newer and MongoDB (local or Atlas).
+
+```powershell
+npm ci
+npm run dev
+```
+
+Copy `.env.example` to `.env` and configure the environment variables:
+- `MONGODB_URI`: MongoDB connection string
+- `JWT_SECRET`: At least 32 random characters for JWT signing
+- `SUPER_ADMIN_SETUP_KEY`: At least 32 random characters for initial super admin setup
+- `CLIENT_ORIGIN`: Frontend URL (default: http://localhost:5173)
+- `DEFAULT_EXPIRY_WARNING_DAYS`: Days before expiry to show warnings (default: 30)
+
+Make sure local MongoDB is running before starting the API.
+
+## Initial Setup
+
+To create the first Super Admin, make a POST request to `/api/auth/setup-super-admin` with:
+```json
+{
+  "setupKey": "your-super-admin-setup-key",
+  "fullName": "Admin Name",
+  "email": "admin@example.com",
+  "password": "strong-password-min-12-chars",
+  "mobile": "9000000000"
+}
+```
+
+The setup key must match `SUPER_ADMIN_SETUP_KEY` from your `.env`. This endpoint only works if no Super Admin exists yet.
+
+## Deploy to Render
+
+1. Push the contents of this `backend` folder to its own GitHub repository.
+2. In Render, choose **New > Blueprint** and connect the repository. Render detects `render.yaml`.
+3. Enter the requested `MONGODB_URI` from MongoDB Atlas and `CLIENT_ORIGIN` as the exact deployed Vercel URL, with no trailing slash.
+4. Generate and set `JWT_SECRET` and `SUPER_ADMIN_SETUP_KEY` as secure random strings.
+5. Create the service. Render supplies `PORT`.
+6. After the first deployment, call the `/api/auth/setup-super-admin` endpoint to create the superadmin.
+7. Check `https://your-api.onrender.com/api/health`.
+8. Set the Vercel frontend variable `VITE_API_URL` to `https://your-api.onrender.com/api`, then redeploy the frontend.
+
+Never commit `.env`, MongoDB credentials, JWT secrets, or real admin passwords. The API uses JWT tokens in Authorization headers and enforces user permissions on the server.
+
+## API
+
+### Authentication
+- `POST /api/auth/login` - Login with email and password, returns JWT token
+- `POST /api/auth/superadmin` - Super Admin exclusive login (role-based)
+- `POST /api/auth/setup-super-admin` - Create initial Super Admin (requires setup key)
+- `POST /api/auth/register` - Public agent registration with 7-day free trial
+- `POST /api/auth/logout` - Logout
+- `POST /api/auth/change-password` - Change user password (authenticated)
+- `GET /api/auth/me` - Get current user info (authenticated)
+
+### Admin (Super Admin only)
+- `GET /api/admin/dashboard` - Platform-wide statistics
+- `GET /api/admin/agents` - List all agents with pagination
+- `POST /api/admin/agents` - Create new agent
+- `GET /api/admin/agents/:id` - Get agent details
+- `PUT /api/admin/agents/:id` - Update agent
+- `PATCH /api/admin/agents/:id/status` - Update agent status (ACTIVE/SUSPENDED)
+- `PATCH /api/admin/agents/:id/password` - Update agent password
+- `PATCH /api/admin/agents/:id/extend-validity` - Extend agent validity (days, optional plan change)
+- `DELETE /api/admin/agents/:id` - Delete agent
+- `GET /api/admin/activity` - View activity log
+
+### Agent (Authenticated agents only)
+- `GET /api/reports/dashboard` - Agent-specific statistics
+- `GET /api/customers` - List customers (scoped to agent)
+- `POST /api/customers` - Create customer
+- `GET /api/customers/:id` - Get customer details
+- `PUT /api/customers/:id` - Update customer
+- `DELETE /api/customers/:id` - Soft delete customer
+- `GET /api/vehicles` - List vehicles (scoped to agent)
+- `POST /api/vehicles` - Create vehicle with documents
+- `GET /api/vehicles/:id` - Get vehicle details
+- `PUT /api/vehicles/:id` - Update vehicle
+- `DELETE /api/vehicles/:id` - Soft delete vehicle
+
+### Health
+- `GET /api/health` - Health check endpoint
+
+## Authentication
+
+The API uses JWT tokens for authentication. Include the token in the Authorization header:
+```
+Authorization: Bearer <your-jwt-token>
+```
+
+Passwords are never returned by the API. Configure HTTPS in production.
