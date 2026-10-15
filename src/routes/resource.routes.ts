@@ -1,10 +1,9 @@
 import { Router } from "express";
-import { createResource, deleteResource, getResource, listCustomers, listResource, markResourceReminderDone, restoreResource, updateResource } from "../controllers/resource.controller.js";
+import { createResource, deleteResource, getResource, listResource, markResourceReminderDone, restoreResource, updateResource } from "../controllers/resource.controller.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 router.use(requireAuth);
-router.get("/customers", listCustomers);
 router.get("/:resource", listResource);
 router.post("/:resource", createResource);
 router.get("/:resource/:id", getResource);

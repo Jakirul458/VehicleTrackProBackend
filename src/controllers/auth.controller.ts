@@ -1,28 +1,45 @@
-import { randomUUID } from "node:crypto";
 import type { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { UserModel } from "../models/User.js";
-import { HttpError, isValidityExpired, publicUser, sendData } from "../utils/http.js";
+import {
+  ACCOUNT_VALIDITY_EXPIRED_CODE,
+  ACCOUNT_VALIDITY_EXPIRED_MESSAGE,
+  HttpError,
+  isValidityExpired,
+  publicUser,
+  sendData,
+} from "../utils/http.js";
+
+const PUBLIC_TRIAL_DAYS = 7;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 const loginSchema = z.object({
   email: z.string().trim().email().max(254),
   password: z.string().min(1).max(200),
 });
 
+const publicSignupSchema = z.object({
+  fullName: z.string().trim().min(2).max(120),
+  businessName: z.string().trim().min(2).max(160),
+  email: z.string().trim().email().max(254),
+  mobile: z.string().trim().regex(/^\+?[0-9]{10,15}$/),
+  password: z.string().min(8).max(200),
+});
+
 const setupSuperAdminSchema = z.object({
   setupKey: z.string().min(32),
   fullName: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(254),
-  password: z.string().min(12).max(200),
+  password: z.string().min(6).max(200),
   mobile: z.string().trim().min(10).max(15),
 });
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1).max(200),
-  newPassword: z.string().min(12).max(200),
+  newPassword: z.string().min(6).max(200),
 });
 
 const updateProfileSchema = z.object({
@@ -34,14 +51,6 @@ const updateProfileSchema = z.object({
   city: z.string().trim().max(120).optional(),
   state: z.string().trim().max(120).optional(),
   pinCode: z.string().trim().max(20).optional(),
-});
-
-const publicRegisterSchema = z.object({
-  fullName: z.string().trim().min(2).max(120),
-  email: z.string().trim().email().max(254),
-  password: z.string().min(12).max(200),
-  mobile: z.string().trim().min(10).max(15),
-  businessName: z.string().trim().min(2).max(160),
 });
 
 function generateToken(userId: string, role: string) {
@@ -62,10 +71,44 @@ export async function login(req: Request, res: Response) {
     throw new HttpError(403, "This account is suspended.");
   }
   if (user.role === "AGENT" && isValidityExpired(user.trialEndDate)) {
-    throw new HttpError(403, "Your agent account validity has expired. Contact the administrator.");
+    throw new HttpError(
+      403,
+      ACCOUNT_VALIDITY_EXPIRED_MESSAGE,
+      ACCOUNT_VALIDITY_EXPIRED_CODE,
+    );
   }
   const token = generateToken(String(user._id), user.role);
   return sendData(res, { user: publicUser(user.toObject() as unknown as Record<string, unknown>), token });
+}
+
+export async function publicSignup(req: Request, res: Response) {
+  const input = publicSignupSchema.parse(req.body);
+  const email = input.email.toLowerCase();
+  const existingUser = await UserModel.findOne({
+    $or: [{ email }, { mobile: input.mobile }],
+  });
+  if (existingUser) {
+    throw new HttpError(409, "An account with that email or mobile number already exists.");
+  }
+
+  const passwordHash = await bcrypt.hash(input.password, 6);
+  const user = await UserModel.create({
+    fullName: input.fullName,
+    businessName: input.businessName,
+    email,
+    mobile: input.mobile,
+    passwordHash,
+    role: "AGENT",
+    status: "ACTIVE",
+    trialEndDate: new Date(Date.now() + PUBLIC_TRIAL_DAYS * DAY_IN_MS),
+  });
+
+  const token = generateToken(String(user._id), user.role);
+  return sendData(
+    res,
+    { user: publicUser(user.toObject() as unknown as Record<string, unknown>), token },
+    201,
+  );
 }
 
 export async function superAdminLogin(req: Request, res: Response) {
@@ -94,7 +137,7 @@ export async function setupSuperAdmin(req: Request, res: Response) {
     throw new HttpError(400, "Super admin already exists.");
   }
 
-  const passwordHash = await bcrypt.hash(input.password, 12);
+  const passwordHash = await bcrypt.hash(input.password, 6);
   const user = await UserModel.create({
     fullName: input.fullName,
     email: input.email.toLowerCase(),
@@ -118,7 +161,7 @@ export async function changePassword(req: Request, res: Response) {
     throw new HttpError(401, "Current password is incorrect.");
   }
 
-  user.passwordHash = await bcrypt.hash(input.newPassword, 12);
+  user.passwordHash = await bcrypt.hash(input.newPassword, 6);
   await user.save();
 
   return sendData(res, { success: true });
@@ -152,34 +195,4 @@ export async function updateProfile(req: Request, res: Response) {
 
 export function logout(_req: Request, res: Response) {
   return sendData(res, { success: true });
-}
-
-export async function publicRegister(req: Request, res: Response) {
-  const input = publicRegisterSchema.parse(req.body);
-
-  const existingUser = await UserModel.findOne({
-    $or: [{ email: input.email.toLowerCase() }, { mobile: input.mobile }],
-  });
-  if (existingUser) {
-    throw new HttpError(400, "Email or mobile already registered.");
-  }
-
-  const trialEndDate = new Date();
-  trialEndDate.setDate(trialEndDate.getDate() + 7);
-
-  const passwordHash = await bcrypt.hash(input.password, 12);
-  const user = await UserModel.create({
-    fullName: input.fullName,
-    email: input.email.toLowerCase(),
-    mobile: input.mobile,
-    passwordHash,
-    businessName: input.businessName,
-    role: "AGENT",
-    status: "ACTIVE",
-    plan: "TRIAL",
-    trialEndDate,
-  });
-
-  const token = generateToken(String(user._id), user.role);
-  return sendData(res, { user: publicUser(user.toObject() as unknown as Record<string, unknown>), token }, 201);
 }

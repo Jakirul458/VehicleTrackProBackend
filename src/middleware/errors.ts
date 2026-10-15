@@ -7,7 +7,11 @@ export const notFound: RequestHandler = (_req, _res, next) => {
 
 export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, _next) => {
   if (error instanceof HttpError) {
-    res.status(error.status).json({ success: false, message: error.message });
+    res.status(error.status).json({
+      success: false,
+      message: error.message,
+      ...(error.code ? { code: error.code } : {}),
+    });
     return;
   }
   if (typeof error === "object" && error !== null && "code" in error && error.code === 11000) {

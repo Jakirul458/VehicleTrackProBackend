@@ -1,5 +1,4 @@
 import type { Request, Response } from "express";
-import { CustomerModel } from "../models/Customer.js";
 import { VehicleModel } from "../models/Vehicle.js";
 import { InsuranceModel } from "../models/Insurance.js";
 import { TaxModel } from "../models/Tax.js";
@@ -15,8 +14,7 @@ async function summarize(agentId?: string) {
     userFilter["_id"] = agentId;
   }
 
-  const [totalCustomers, totalVehicles, totalAgents, activeAgents, suspendedAgents, insurance, tax, puc] = await Promise.all([
-    CustomerModel.countDocuments(filter),
+  const [totalVehicles, totalAgents, activeAgents, suspendedAgents, insurance, tax, puc] = await Promise.all([
     VehicleModel.countDocuments(filter),
     UserModel.countDocuments(userFilter),
     UserModel.countDocuments({ ...userFilter, status: "ACTIVE" }),
@@ -48,7 +46,6 @@ async function summarize(agentId?: string) {
   const pucCounts = countStatuses(puc);
 
   return {
-    totalCustomers,
     totalVehicles,
     totalAgents,
     activeAgents,

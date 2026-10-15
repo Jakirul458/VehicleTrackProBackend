@@ -52,9 +52,9 @@ Never commit `.env`, MongoDB credentials, JWT secrets, or real admin passwords. 
 
 ### Authentication
 - `POST /api/auth/login` - Login with email and password, returns JWT token
+- `POST /api/auth/register` - Create an Agent account and start a seven-day free trial
 - `POST /api/auth/superadmin` - Super Admin exclusive login (role-based)
 - `POST /api/auth/setup-super-admin` - Create initial Super Admin (requires setup key)
-- `POST /api/auth/register` - Public agent registration with 7-day free trial
 - `POST /api/auth/logout` - Logout
 - `POST /api/auth/change-password` - Change user password (authenticated)
 - `GET /api/auth/me` - Get current user info (authenticated)
@@ -66,23 +66,18 @@ Never commit `.env`, MongoDB credentials, JWT secrets, or real admin passwords. 
 - `GET /api/admin/agents/:id` - Get agent details
 - `PUT /api/admin/agents/:id` - Update agent
 - `PATCH /api/admin/agents/:id/status` - Update agent status (ACTIVE/SUSPENDED)
-- `PATCH /api/admin/agents/:id/password` - Update agent password
-- `PATCH /api/admin/agents/:id/extend-validity` - Extend agent validity (days, optional plan change)
+- `PATCH /api/admin/agents/:id/validity` - Set agent validity date
 - `DELETE /api/admin/agents/:id` - Delete agent
 - `GET /api/admin/activity` - View activity log
 
 ### Agent (Authenticated agents only)
 - `GET /api/reports/dashboard` - Agent-specific statistics
-- `GET /api/customers` - List customers (scoped to agent)
-- `POST /api/customers` - Create customer
-- `GET /api/customers/:id` - Get customer details
-- `PUT /api/customers/:id` - Update customer
-- `DELETE /api/customers/:id` - Soft delete customer
-- `GET /api/vehicles` - List vehicles (scoped to agent)
-- `POST /api/vehicles` - Create vehicle with documents
-- `GET /api/vehicles/:id` - Get vehicle details
-- `PUT /api/vehicles/:id` - Update vehicle
-- `DELETE /api/vehicles/:id` - Soft delete vehicle
+- `GET /api/insurance`, `GET /api/tax`, `GET /api/puc` - List document records
+- `POST /api/insurance`, `POST /api/tax`, `POST /api/puc` - Create records (agents only)
+- `PUT /api/{insurance|tax|puc}/:id` - Update records (agents only)
+- `DELETE /api/{insurance|tax|puc}/:id` - Soft-delete records (agents only)
+
+Agents may start a seven-day free trial through `/api/auth/register`; validity is enforced at login and on authenticated requests. After expiry, access must be extended by the Super Admin through `/api/admin/agents/:id/validity`. The public annual price is ₹4,999; users contact admin at 6294527072 to arrange the purchase and validity extension. Super Admins can continue creating and managing agent accounts through `/api/admin/agents`. The retained Vehicle model is only used by the one-time legacy document migration and the existing report count; vehicle CRUD endpoints are not exposed.
 
 ### Health
 - `GET /api/health` - Health check endpoint

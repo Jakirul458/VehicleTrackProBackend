@@ -8,7 +8,6 @@ export interface AuthUser {
   mobile?: string;
   businessName?: string;
   agentCode?: string;
-  plan?: string;
   status?: string;
 }
 

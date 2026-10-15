@@ -23,6 +23,7 @@ app.use(helmet());
 
 
 const allowedOrigins = [
+  env.CLIENT_ORIGIN,
   "https://vehicletrackpro.vercel.app",
   "https://www.vehicletrackpro.vercel.app",
   "http://localhost:5173",

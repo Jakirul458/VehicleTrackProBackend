@@ -10,7 +10,7 @@ const createAgentSchema = z.object({
   businessName: z.string().trim().min(2).max(160),
   email: z.string().trim().email().max(254),
   phone: z.string().trim().min(10).max(15),
-  password: z.string().min(12).max(200),
+  password: z.string().min(6).max(200),
   address: z.string().trim().max(500).optional(),
   city: z.string().trim().optional(),
   state: z.string().trim().optional(),
@@ -91,7 +91,7 @@ export async function createAgent(req: Request, res: Response) {
   const existingMobile = await UserModel.findOne({ mobile: input.phone, role: "AGENT" });
   if (existingMobile) throw new HttpError(409, "Phone already exists");
 
-  const passwordHash = await bcrypt.hash(input.password, 12);
+  const passwordHash = await bcrypt.hash(input.password, 6);
   const agent = await UserModel.create({
     fullName: input.fullName,
     businessName: input.businessName,
@@ -202,23 +202,15 @@ export async function listActivity(req: Request, res: Response) {
 }
 
 export async function getDashboardStats(req: Request, res: Response) {
-  const [totalAgents, activeAgents, suspendedAgents, totalVehicles, totalCustomers] = await Promise.all([
+  const [totalAgents, activeAgents, suspendedAgents] = await Promise.all([
     UserModel.countDocuments({ role: "AGENT" }),
     UserModel.countDocuments({ role: "AGENT", status: "ACTIVE" }),
     UserModel.countDocuments({ role: "AGENT", status: "SUSPENDED" }),
-    0, // Will be updated when Vehicle model is integrated
-    0, // Will be updated when Customer model is integrated
   ]);
 
   return sendData(res, {
     totalAgents,
     activeAgents,
     suspendedAgents,
-    totalVehicles,
-    totalCustomers,
-    activeInsurance: 0,
-    expiringInsurance: 0,
-    expiredInsurance: 0,
-    expiringTax: 0,
   });
 }

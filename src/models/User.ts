@@ -15,7 +15,6 @@ const userSchema = new Schema(
     state: { type: String, trim: true },
     pinCode: { type: String, trim: true },
     status: { type: String, enum: ["ACTIVE", "SUSPENDED"], default: "ACTIVE" },
-    plan: { type: String, enum: ["TRIAL", "BASIC", "PRO"], default: "BASIC" },
     trialEndDate: { type: Date },
   },
   { timestamps: true, versionKey: false }

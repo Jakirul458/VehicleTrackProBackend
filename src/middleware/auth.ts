@@ -2,7 +2,12 @@ import type { NextFunction, Request, Response } from "express";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { env } from "../config/env.js";
 import { UserModel } from "../models/User.js";
-import { HttpError, isValidityExpired } from "../utils/http.js";
+import {
+  ACCOUNT_VALIDITY_EXPIRED_CODE,
+  ACCOUNT_VALIDITY_EXPIRED_MESSAGE,
+  HttpError,
+  isValidityExpired,
+} from "../utils/http.js";
 
 export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
   try {
@@ -22,7 +27,11 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       throw new HttpError(403, "This account is suspended.");
     }
     if (user.role === "AGENT" && isValidityExpired(user.trialEndDate)) {
-      throw new HttpError(403, "Your agent account validity has expired. Contact the administrator.");
+      throw new HttpError(
+        403,
+        ACCOUNT_VALIDITY_EXPIRED_MESSAGE,
+        ACCOUNT_VALIDITY_EXPIRED_CODE,
+      );
     }
 
     req.user = {

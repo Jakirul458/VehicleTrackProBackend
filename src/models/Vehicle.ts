@@ -18,11 +18,6 @@ const vehicleDocumentSchema = new Schema({
   pucNumber: { type: String, trim: true },
   pucStartDate: { type: Date },
   pucExpiryDate: { type: Date },
-  fitnessStartDate: { type: Date },
-  fitnessExpiryDate: { type: Date },
-  permitNumber: { type: String, trim: true },
-  permitStartDate: { type: Date },
-  permitExpiryDate: { type: Date },
 }, { _id: false });
 
 const vehicleSchema = new Schema(
