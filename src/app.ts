@@ -12,16 +12,44 @@ app.set("trust proxy", env.NODE_ENV === "production" ? 1 : false);
 app.use(helmet());
 
 // CORS configuration
+// const corsOptions = {
+//   origin: env.NODE_ENV === "production"
+//     ? env.CLIENT_ORIGIN
+//     : ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"],
+//   credentials: true,
+//   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+//   allowedHeaders: ["Content-Type", "Authorization"],
+// };
+
+
+const allowedOrigins = [
+  "https://vehicletrackpro.vercel.app",
+  "https://www.vehicletrackpro.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:3000",
+];
+
 const corsOptions = {
-  origin: env.NODE_ENV === "production"
-    ? env.CLIENT_ORIGIN
-    : ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"],
+  origin: (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void
+  ) => {
+    // Allow requests without an Origin header, such as server-to-server requests.
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
 app.use(cors(corsOptions));
+
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
