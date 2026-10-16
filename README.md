@@ -16,7 +16,7 @@ Copy `.env.example` to `.env` and configure the environment variables:
 - `JWT_SECRET`: At least 32 random characters for JWT signing
 - `SUPER_ADMIN_SETUP_KEY`: At least 32 random characters for initial super admin setup
 - `CLIENT_ORIGIN`: Frontend URL (default: http://localhost:5173)
-- `DEFAULT_EXPIRY_WARNING_DAYS`: Days before expiry to show warnings (default: 30)
+- `DEFAULT_EXPIRY_WARNING_DAYS`: Days before expiry to show warnings (default: 7)
 
 Make sure local MongoDB is running before starting the API.
 
@@ -73,6 +73,7 @@ Never commit `.env`, MongoDB credentials, JWT secrets, or real admin passwords. 
 ### Agent (Authenticated agents only)
 - `GET /api/reports/dashboard` - Agent-specific statistics
 - `GET /api/insurance`, `GET /api/tax`, `GET /api/puc` - List document records
+- `GET /api/reminders` - Agent-owned insurance, tax, and PUC records due within `DEFAULT_EXPIRY_WARNING_DAYS`, with days remaining
 - `POST /api/insurance`, `POST /api/tax`, `POST /api/puc` - Create records (agents only)
 - `PUT /api/{insurance|tax|puc}/:id` - Update records (agents only)
 - `DELETE /api/{insurance|tax|puc}/:id` - Soft-delete records (agents only)

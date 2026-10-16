@@ -19,7 +19,7 @@ const envSchema = z.object({
   ADMIN_PASSWORD: z.string().min(12),
 
   SUPER_ADMIN_SETUP_KEY: z.string().min(32),
-  DEFAULT_EXPIRY_WARNING_DAYS: z.coerce.number().int().positive().default(30),
+  DEFAULT_EXPIRY_WARNING_DAYS: z.coerce.number().int().positive().default(7),
 });
 
 export const env = envSchema.parse(process.env);
