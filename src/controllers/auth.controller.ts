@@ -4,6 +4,7 @@ import jwt, { type SignOptions } from "jsonwebtoken";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { UserModel } from "../models/User.js";
+import { recordActivity } from "../models/ActivityLog.js";
 import {
   ACCOUNT_VALIDITY_EXPIRED_CODE,
   ACCOUNT_VALIDITY_EXPIRED_MESSAGE,
@@ -65,10 +66,10 @@ export async function login(req: Request, res: Response) {
   const email = input.email.toLowerCase();
   const user = await UserModel.findOne({ email }).select("+passwordHash");
   if (!user || !(await bcrypt.compare(input.password, user.passwordHash))) {
-    throw new HttpError(401, "Invalid email or password.");
+    throw new HttpError(401, "Invalid email or password.", "INVALID_CREDENTIALS");
   }
   if (user.status === "SUSPENDED") {
-    throw new HttpError(403, "This account is suspended.");
+    throw new HttpError(403, "This account is suspended. Please contact the administrator.", "ACCOUNT_SUSPENDED");
   }
   if (user.role === "AGENT" && isValidityExpired(user.trialEndDate)) {
     throw new HttpError(
@@ -77,6 +78,7 @@ export async function login(req: Request, res: Response) {
       ACCOUNT_VALIDITY_EXPIRED_CODE,
     );
   }
+  await recordActivity(String(user._id), user.role, "LOGIN", "SESSION", String(user._id), {}, req.ip);
   const token = generateToken(String(user._id), user.role);
   return sendData(res, { user: publicUser(user.toObject() as unknown as Record<string, unknown>), token });
 }
@@ -103,6 +105,7 @@ export async function publicSignup(req: Request, res: Response) {
     trialEndDate: new Date(Date.now() + PUBLIC_TRIAL_DAYS * DAY_IN_MS),
   });
 
+  await recordActivity(String(user._id), user.role, "REGISTER", "AGENT", String(user._id), {}, req.ip);
   const token = generateToken(String(user._id), user.role);
   return sendData(
     res,
@@ -116,11 +119,12 @@ export async function superAdminLogin(req: Request, res: Response) {
   const email = input.email.toLowerCase();
   const user = await UserModel.findOne({ email, role: "SUPER_ADMIN" }).select("+passwordHash");
   if (!user || !(await bcrypt.compare(input.password, user.passwordHash))) {
-    throw new HttpError(401, "Invalid super admin credentials.");
+    throw new HttpError(401, "Invalid email or password.", "INVALID_CREDENTIALS");
   }
   if (user.status === "SUSPENDED") {
-    throw new HttpError(403, "This account is suspended.");
+    throw new HttpError(403, "This account is suspended. Please contact the administrator.", "ACCOUNT_SUSPENDED");
   }
+  await recordActivity(String(user._id), user.role, "LOGIN", "SESSION", String(user._id), {}, req.ip);
   const token = generateToken(String(user._id), user.role);
   return sendData(res, { user: publicUser(user.toObject() as unknown as Record<string, unknown>), token });
 }
@@ -163,6 +167,7 @@ export async function changePassword(req: Request, res: Response) {
 
   user.passwordHash = await bcrypt.hash(input.newPassword, 6);
   await user.save();
+  await recordActivity(String(user._id), user.role, "CHANGE_PASSWORD", "ACCOUNT", String(user._id), {}, req.ip);
 
   return sendData(res, { success: true });
 }
@@ -190,9 +195,13 @@ export async function updateProfile(req: Request, res: Response) {
 
   Object.assign(user, { ...input, email });
   await user.save();
+  await recordActivity(String(user._id), user.role, "UPDATE_PROFILE", "ACCOUNT", String(user._id), {}, req.ip);
   return sendData(res, publicUser(user.toObject() as unknown as Record<string, unknown>));
 }
 
-export function logout(_req: Request, res: Response) {
+export async function logout(req: Request, res: Response) {
+  if (req.user) {
+    await recordActivity(req.user.id, req.user.role, "LOGOUT", "SESSION", req.user.id, {}, req.ip);
+  }
   return sendData(res, { success: true });
 }

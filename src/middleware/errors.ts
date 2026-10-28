@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler } from "express";
+import { ZodError } from "zod";
 import { HttpError } from "../utils/http.js";
 
 export const notFound: RequestHandler = (_req, _res, next) => {
@@ -11,6 +12,17 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, _ne
       success: false,
       message: error.message,
       ...(error.code ? { code: error.code } : {}),
+    });
+    return;
+  }
+  if (error instanceof ZodError) {
+    const errors = Object.fromEntries(
+      error.issues.map((issue) => [issue.path.join("."), issue.message]),
+    );
+    res.status(422).json({
+      success: false,
+      message: "Please check the submitted details.",
+      errors,
     });
     return;
   }

@@ -6,10 +6,12 @@ import {
   updateAgent,
   updateAgentStatus,
   updateAgentValidity,
+  resetAgentPassword,
   deleteAgent,
   listActivity,
   getDashboardStats,
 } from "../controllers/admin.controller.js";
+import { getPublicSettings, updatePlatformSettings } from "../controllers/settings.controller.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
@@ -24,7 +26,10 @@ router.get("/agents/:id", requireAuth, requireAdmin, getAgent);
 router.put("/agents/:id", requireAuth, requireAdmin, updateAgent);
 router.patch("/agents/:id/status", requireAuth, requireAdmin, updateAgentStatus);
 router.patch("/agents/:id/validity", requireAuth, requireAdmin, updateAgentValidity);
+router.patch("/agents/:id/password", requireAuth, requireAdmin, resetAgentPassword);
 router.delete("/agents/:id", requireAuth, requireAdmin, deleteAgent);
+router.get("/settings", requireAuth, requireAdmin, getPublicSettings);
+router.put("/settings", requireAuth, requireAdmin, updatePlatformSettings);
 
 // Activity log
 router.get("/activity", requireAuth, requireAdmin, listActivity);

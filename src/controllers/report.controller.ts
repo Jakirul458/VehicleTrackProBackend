@@ -4,6 +4,8 @@ import { InsuranceModel } from "../models/Insurance.js";
 import { TaxModel } from "../models/Tax.js";
 import { PucModel } from "../models/Puc.js";
 import { UserModel } from "../models/User.js";
+import { Types } from "mongoose";
+import { HttpError } from "../utils/http.js";
 import { sendData } from "../utils/http.js";
 
 async function summarize(agentId?: string) {
@@ -77,4 +79,140 @@ export async function agentDashboard(req: Request, res: Response) {
 
 export async function adminDashboard(_req: Request, res: Response) {
   return sendData(res, await summarize());
+}
+
+export async function agentFinancialSummary(req: Request, res: Response) {
+  const agentId = req.user?.id;
+  if (!agentId || !Types.ObjectId.isValid(agentId)) {
+    throw new HttpError(401, "Your agent account is unavailable.");
+  }
+  const [insurance, tax, puc] = await Promise.all([
+    InsuranceModel.find({ agentId, deletedAt: null }).select("createdAt paymentDate portalPaid customerPaid commission").lean(),
+    TaxModel.find({ agentId, deletedAt: null }).select("createdAt paymentDate amount portalPaid customerPaid paymentStatus").lean(),
+    PucModel.find({ agentId, deletedAt: null }).select("createdAt paymentDate portalPaid customerPaid").lean(),
+  ]);
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const yearStart = new Date(now.getFullYear(), 0, 1);
+  const summarizePeriod = (start?: Date) => {
+    const records = [...insurance, ...tax].filter((row) => {
+      const accountingDate = row.paymentDate ?? row.createdAt;
+      return !start || accountingDate >= start;
+    });
+    const insuranceRows = insurance.filter((row) => {
+      const accountingDate = row.paymentDate ?? row.createdAt;
+      return !start || accountingDate >= start;
+    });
+    const taxRows = tax.filter((row) => {
+      const accountingDate = row.paymentDate ?? row.createdAt;
+      return !start || accountingDate >= start;
+    });
+    const pucRows = puc.filter((row) => {
+      const accountingDate = row.paymentDate ?? row.createdAt;
+      return !start || accountingDate >= start;
+    });
+    return {
+      paidToPortal:
+        insuranceRows.reduce((total, row) => total + (row.portalPaid ?? 0), 0) +
+        taxRows.reduce(
+          (total, row) =>
+            total +
+            (row.portalPaid ?? (row.paymentStatus === "PAID" ? (row.amount ?? 0) : 0)),
+          0,
+        ) +
+        pucRows.reduce((total, row) => total + (row.portalPaid ?? 0), 0),
+      commissionEarned: insuranceRows.reduce((total, row) => total + (row.commission ?? 0), 0),
+      collectedFromCustomers:
+        records.reduce((total, row) => total + (row.customerPaid ?? 0), 0) +
+        pucRows.reduce((total, row) => total + (row.customerPaid ?? 0), 0),
+      records: records.length + pucRows.length,
+    };
+  };
+
+  return sendData(res, {
+    monthly: summarizePeriod(monthStart),
+    yearly: summarizePeriod(yearStart),
+    lifetime: summarizePeriod(),
+  });
+}
+
+export async function paymentRecords(req: Request, res: Response) {
+  const filter: Record<string, unknown> = { deletedAt: null };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    const agentId = req.user?.id;
+    if (!agentId || !Types.ObjectId.isValid(agentId)) {
+      throw new HttpError(401, "Your agent account is unavailable.");
+    }
+    filter["agentId"] = agentId;
+  }
+
+  const [insurance, tax, puc] = await Promise.all([
+    InsuranceModel.find(filter)
+      .select("agentId customerName mobile vehicleNumber paymentDate createdAt premium portalPaid customerPaid commission")
+      .lean(),
+    TaxModel.find(filter)
+      .select("agentId customerName mobile vehicleNumber paymentDate createdAt amount portalPaid customerPaid paymentStatus")
+      .lean(),
+    PucModel.find(filter)
+      .select("agentId customerName mobile vehicleNumber paymentDate createdAt amount portalPaid customerPaid")
+      .lean(),
+  ]);
+  const agents = await UserModel.find(req.user?.role === "SUPER_ADMIN" ? { role: "AGENT" } : { _id: req.user?.id })
+    .select("fullName businessName")
+    .lean();
+  const agentNames = new Map(
+    agents.map((agent) => [String(agent._id), agent.businessName || agent.fullName]),
+  );
+
+  const toRecord = (
+    row: {
+      _id: Types.ObjectId;
+      agentId: Types.ObjectId;
+      customerName?: string | null;
+      mobile?: string | null;
+      vehicleNumber?: string | null;
+      paymentDate?: Date;
+      createdAt: Date;
+      premium?: number | null;
+      amount?: number | null;
+      portalPaid?: number | null;
+      customerPaid?: number | null;
+      commission?: number | null;
+      paymentStatus?: string;
+    },
+    type: "Insurance" | "Tax" | "PUC",
+  ) => ({
+    id: String(row._id),
+    agentId: String(row.agentId),
+    agentName: agentNames.get(String(row.agentId)) ?? "",
+    type,
+    customerName: row.customerName ?? undefined,
+    mobile: row.mobile ?? undefined,
+    vehicleNumber: row.vehicleNumber ?? undefined,
+    paymentDate: (row.paymentDate ?? row.createdAt).toISOString(),
+    documentAmount: row.premium ?? row.amount ?? 0,
+    customerPaid: row.customerPaid ?? 0,
+    portalPaid:
+      row.portalPaid ?? (type === "Tax" && row.paymentStatus === "PAID" ? (row.amount ?? 0) : 0),
+    commission: row.commission ?? 0,
+  });
+
+  const records = [
+    ...insurance.map((row) => toRecord(row, "Insurance")),
+    ...tax.map((row) => toRecord(row, "Tax")),
+    ...puc.map((row) => toRecord(row, "PUC")),
+  ].sort((a, b) => Date.parse(b.paymentDate) - Date.parse(a.paymentDate));
+
+  return sendData(
+    res,
+    req.user?.role === "SUPER_ADMIN"
+      ? {
+          records,
+          agents: agents.map((agent) => ({
+            id: String(agent._id),
+            name: agent.businessName || agent.fullName,
+          })),
+        }
+      : { records, agents: [] },
+  );
 }

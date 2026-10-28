@@ -67,18 +67,22 @@ Never commit `.env`, MongoDB credentials, JWT secrets, or real admin passwords. 
 - `PUT /api/admin/agents/:id` - Update agent
 - `PATCH /api/admin/agents/:id/status` - Update agent status (ACTIVE/SUSPENDED)
 - `PATCH /api/admin/agents/:id/validity` - Set agent validity date
+- `PATCH /api/admin/agents/:id/password` - Reset agent password as Super Admin
+- `GET /api/admin/settings`, `PUT /api/admin/settings` - Read/update renewal payment details and plan prices
 - `DELETE /api/admin/agents/:id` - Delete agent
 - `GET /api/admin/activity` - View activity log
 
 ### Agent (Authenticated agents only)
 - `GET /api/reports/dashboard` - Agent-specific statistics
+- `GET /api/reports/agent-finances` - Monthly, yearly, and lifetime portal/customer/commission totals
+- `GET /api/settings/payment` - Public renewal payment instructions
 - `GET /api/insurance`, `GET /api/tax`, `GET /api/puc` - List document records
 - `GET /api/reminders` - Agent-owned insurance, tax, and PUC records due within `DEFAULT_EXPIRY_WARNING_DAYS`, with days remaining
 - `POST /api/insurance`, `POST /api/tax`, `POST /api/puc` - Create records (agents only)
 - `PUT /api/{insurance|tax|puc}/:id` - Update records (agents only)
 - `DELETE /api/{insurance|tax|puc}/:id` - Soft-delete records (agents only)
 
-Agents may start a seven-day free trial through `/api/auth/register`; validity is enforced at login and on authenticated requests. After expiry, access must be extended by the Super Admin through `/api/admin/agents/:id/validity`. The public annual price is ₹4,999; users contact admin at 6294527072 to arrange the purchase and validity extension. Super Admins can continue creating and managing agent accounts through `/api/admin/agents`. The retained Vehicle model is only used by the one-time legacy document migration and the existing report count; vehicle CRUD endpoints are not exposed.
+Agents may start a seven-day free trial through `/api/auth/register`; validity is enforced at login and on authenticated requests. After expiry, the login page directs the agent to the public renewal page. Super Admins configure QR, bank/UPI, WhatsApp, Gmail, and monthly/yearly/lifetime plan prices from `/admin/settings`, then extend validity through `/api/admin/agents/:id/validity` after confirming payment. The initial default annual price and support WhatsApp are ₹4,999 and 6294527072; update them in Settings for your business. Super Admins can continue creating and managing agent accounts through `/api/admin/agents`. The retained Vehicle model is only used by the one-time legacy document migration and the existing report count; vehicle CRUD endpoints are not exposed.
 
 ### Health
 - `GET /api/health` - Health check endpoint

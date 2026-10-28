@@ -4,6 +4,7 @@ import { z } from "zod";
 import { InsuranceModel } from "../models/Insurance.js";
 import { PucModel } from "../models/Puc.js";
 import { TaxModel } from "../models/Tax.js";
+import { recordActivity } from "../models/ActivityLog.js";
 import { HttpError, sendData } from "../utils/http.js";
 
 const insuranceSchema = z.object({
@@ -22,6 +23,7 @@ const insuranceSchema = z.object({
   portalPaid: z.coerce.number().min(0).optional(),
   customerPaid: z.coerce.number().min(0).optional(),
   commission: z.coerce.number().min(0).optional(),
+  paymentDate: z.coerce.date().optional(),
   startDate: z.coerce.date().optional(),
   expiryDate: z.coerce.date().optional(),
   address: z.string().trim().max(500).optional(),
@@ -37,8 +39,10 @@ const taxSchema = z.object({
   taxType: z.enum(["Road Tax", "Green Tax", "Professional Tax"]).optional(),
   taxPeriod: z.enum(["Quarterly", "Half-yearly", "Yearly", "Lifetime"]).optional(),
   amount: z.coerce.number().min(0).optional(),
+  portalPaid: z.coerce.number().min(0).optional(),
   customerPaid: z.coerce.number().min(0).optional(),
   paymentStatus: z.enum(["PAID", "PENDING"]).default("PENDING"),
+  paymentDate: z.coerce.date().optional(),
   startDate: z.coerce.date().optional(),
   expiryDate: z.coerce.date().optional(),
   address: z.string().trim().max(500).optional(),
@@ -51,6 +55,10 @@ const pucSchema = z.object({
   vehicleNumber: z.string().trim().max(24).optional(),
   chassisNumber: z.string().trim().max(64).optional(),
   engineNumber: z.string().trim().max(64).optional(),
+  amount: z.coerce.number().min(0).optional(),
+  portalPaid: z.coerce.number().min(0).optional(),
+  customerPaid: z.coerce.number().min(0).optional(),
+  paymentDate: z.coerce.date().optional(),
   startDate: z.coerce.date().optional(),
   expiryDate: z.coerce.date().optional(),
   address: z.string().trim().max(500).optional(),
@@ -70,6 +78,11 @@ function resolveResource(req: Request) {
   const definition = definitions[key];
   if (!definition) throw new HttpError(404, "Resource not found.");
   return definition;
+}
+
+function resourceNameForActivity(req: Request) {
+  const resource = req.params["resource"];
+  return typeof resource === "string" ? resource : "DOCUMENT";
 }
 
 function ownerFilter(req: Request) {
@@ -100,7 +113,7 @@ export async function listResource(req: Request, res: Response) {
     const expression = new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
     filter["$or"] = searchable.map((field) => ({ [field]: expression }));
   }
-  const rows = await model.find(filter).sort({ createdAt: -1 }).limit(500);
+  const rows = await model.find(filter).sort({ createdAt: -1, _id: -1 }).limit(500);
   return sendData(res, rows);
 }
 
@@ -113,6 +126,10 @@ export async function createResource(req: Request, res: Response) {
     throw new HttpError(401, "Your agent account is unavailable.");
   }
   const row = await model.create({ ...body, agentId });
+  await recordActivity(agentId, "AGENT", "CREATE", resourceNameForActivity(req), String(row._id), {
+    customerName: row.get("customerName"),
+    vehicleNumber: row.get("vehicleNumber"),
+  }, req.ip);
   return sendData(res, row, 201);
 }
 
@@ -120,6 +137,10 @@ export async function getResource(req: Request, res: Response) {
   const { model } = resolveResource(req);
   const row = await model.findOne({ _id: req.params["id"], ...ownerFilter(req) });
   if (!row) throw new HttpError(404, "Record not found.");
+  await recordActivity(req.user!.id, "AGENT", "UPDATE", resourceNameForActivity(req), String(row._id), {
+    customerName: row.get("customerName"),
+    vehicleNumber: row.get("vehicleNumber"),
+  }, req.ip);
   return sendData(res, row);
 }
 
@@ -147,6 +168,10 @@ export async function markResourceReminderDone(req: Request, res: Response) {
     { new: true, runValidators: true },
   );
   if (!row) throw new HttpError(404, "Reminder record not found.");
+  await recordActivity(req.user!.id, "AGENT", "MARK_REMINDER_DONE", resourceNameForActivity(req), String(row._id), {
+    customerName: row.get("customerName"),
+    vehicleNumber: row.get("vehicleNumber"),
+  }, req.ip);
   return sendData(res, row);
 }
 
@@ -159,6 +184,10 @@ export async function deleteResource(req: Request, res: Response) {
     { new: true },
   );
   if (!row) throw new HttpError(404, "Record not found.");
+  await recordActivity(req.user!.id, "AGENT", "DELETE", resourceNameForActivity(req), String(row._id), {
+    customerName: row.get("customerName"),
+    vehicleNumber: row.get("vehicleNumber"),
+  }, req.ip);
   return sendData(res, { id: String(row._id) });
 }
 
@@ -171,5 +200,9 @@ export async function restoreResource(req: Request, res: Response) {
     { new: true },
   );
   if (!row) throw new HttpError(404, "Deleted record not found.");
+  await recordActivity(req.user!.id, "AGENT", "RESTORE", resourceNameForActivity(req), String(row._id), {
+    customerName: row.get("customerName"),
+    vehicleNumber: row.get("vehicleNumber"),
+  }, req.ip);
   return sendData(res, row);
 }

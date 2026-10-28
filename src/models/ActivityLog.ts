@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose";
+import type { Role } from "./User.js";
 
 const activityLogSchema = new Schema(
   {
@@ -26,3 +27,23 @@ activityLogSchema.set("toJSON", {
 });
 
 export const ActivityLogModel = model("ActivityLog", activityLogSchema);
+
+export async function recordActivity(
+  actorId: string,
+  actorRole: Role,
+  action: string,
+  entity: string,
+  entityId: string,
+  metadata: Record<string, unknown> = {},
+  ipAddress?: string,
+) {
+  await ActivityLogModel.create({
+    actorId,
+    actorRole,
+    action,
+    entity,
+    entityId,
+    metadata,
+    ...(ipAddress ? { ipAddress } : {}),
+  });
+}

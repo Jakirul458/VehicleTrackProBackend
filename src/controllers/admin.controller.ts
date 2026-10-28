@@ -37,6 +37,9 @@ const updateStatusSchema = z.object({
 const updateValiditySchema = z.object({
   trialEndDate: z.string().date(),
 });
+const resetAgentPasswordSchema = z.object({
+  newPassword: z.string().min(6).max(200),
+});
 
 async function logActivity(actorId: string, actorRole: string, action: string, entity: string, entityId: string, metadata: Record<string, unknown> = {}) {
   await ActivityLogModel.create({
@@ -50,8 +53,10 @@ async function logActivity(actorId: string, actorRole: string, action: string, e
 }
 
 export async function listAgents(req: Request, res: Response) {
-  const { page = 1, limit = 20, search, status } = req.query;
-  const skip = (Number(page) - 1) * Number(limit);
+  const page = Math.max(1, Number(req.query["page"]) || 1);
+  const limit = Math.min(20, Math.max(10, Number(req.query["limit"]) || 10));
+  const skip = (page - 1) * limit;
+  const { search, status } = req.query;
 
   const filter: Record<string, unknown> = { role: "AGENT" };
   if (status) filter.status = status;
@@ -65,13 +70,13 @@ export async function listAgents(req: Request, res: Response) {
   }
 
   const [agents, total] = await Promise.all([
-    UserModel.find(filter).skip(skip).limit(Number(limit)).sort({ createdAt: -1 }),
+    UserModel.find(filter).skip(skip).limit(limit).sort({ createdAt: -1, _id: -1 }),
     UserModel.countDocuments(filter),
   ]);
 
   return sendData(res, {
     data: agents,
-    pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / Number(limit)) },
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   });
 }
 
@@ -168,6 +173,20 @@ export async function updateAgentValidity(req: Request, res: Response) {
   return sendData(res, agent);
 }
 
+export async function resetAgentPassword(req: Request, res: Response) {
+  const { id } = req.params;
+  const { newPassword } = resetAgentPasswordSchema.parse(req.body);
+  const agent = await UserModel.findOne({ _id: id, role: "AGENT" });
+  if (!agent) throw new HttpError(404, "Agent not found");
+
+  agent.passwordHash = await bcrypt.hash(newPassword, 6);
+  await agent.save();
+  await logActivity(req.user!.id, req.user!.role, "RESET_PASSWORD", "AGENT", agent.id, {
+    agentName: agent.fullName,
+  });
+  return sendData(res, { success: true });
+}
+
 export async function deleteAgent(req: Request, res: Response) {
   const { id } = req.params;
   const agentId = Array.isArray(id) ? id[0] : id;
@@ -183,21 +202,24 @@ export async function deleteAgent(req: Request, res: Response) {
 }
 
 export async function listActivity(req: Request, res: Response) {
-  const { page = 1, limit = 50, actorId, entity } = req.query;
-  const skip = (Number(page) - 1) * Number(limit);
+  const page = Math.max(1, Number(req.query["page"]) || 1);
+  const limit = Math.min(20, Math.max(10, Number(req.query["limit"]) || 10));
+  const skip = (page - 1) * limit;
 
   const filter: Record<string, unknown> = {};
-  if (actorId && typeof actorId === 'string') filter.actorId = actorId;
+  const { actorId, entity, actorRole } = req.query;
+  if (actorId && typeof actorId === "string") filter.actorId = actorId;
   if (entity && typeof entity === 'string') filter.entity = entity;
+  if (actorRole === "AGENT" || actorRole === "SUPER_ADMIN") filter.actorRole = actorRole;
 
   const [activities, total] = await Promise.all([
-    ActivityLogModel.find(filter).skip(skip).limit(Number(limit)).sort({ createdAt: -1 }).populate("actorId", "fullName email"),
+    ActivityLogModel.find(filter).skip(skip).limit(limit).sort({ createdAt: -1, _id: -1 }).populate("actorId", "fullName email"),
     ActivityLogModel.countDocuments(filter),
   ]);
 
   return sendData(res, {
     data: activities,
-    pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / Number(limit)) },
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   });
 }
 

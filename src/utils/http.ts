@@ -13,7 +13,7 @@ export class HttpError extends Error {
 
 export const ACCOUNT_VALIDITY_EXPIRED_CODE = "ACCOUNT_VALIDITY_EXPIRED";
 export const ACCOUNT_VALIDITY_EXPIRED_MESSAGE =
-  "Your 7-day free trial or account validity has ended. Contact admin at 6294527072 to purchase the 1-year plan for ₹4,999 and extend your access.";
+  "Your account validity has ended. Renew your plan to restore access.";
 
 export function sendData<T>(res: Response, data: T, status = 200) {
   return res.status(status).json({ success: true, data });
