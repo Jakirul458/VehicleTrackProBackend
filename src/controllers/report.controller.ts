@@ -111,20 +111,28 @@ export async function agentFinancialSummary(req: Request, res: Response) {
       const accountingDate = row.paymentDate ?? row.createdAt;
       return !start || accountingDate >= start;
     });
+    const paidToPortal =
+      insuranceRows.reduce((total, row) => total + (row.portalPaid ?? 0), 0) +
+      taxRows.reduce(
+        (total, row) =>
+          total +
+          (row.portalPaid ?? (row.paymentStatus === "PAID" ? (row.amount ?? 0) : 0)),
+        0,
+      ) +
+      pucRows.reduce((total, row) => total + (row.portalPaid ?? 0), 0);
+    const commissionEarned = insuranceRows.reduce(
+      (total, row) => total + (row.commission ?? 0),
+      0,
+    );
+    const collectedFromCustomers =
+      records.reduce((total, row) => total + (row.customerPaid ?? 0), 0) +
+      pucRows.reduce((total, row) => total + (row.customerPaid ?? 0), 0);
+
     return {
-      paidToPortal:
-        insuranceRows.reduce((total, row) => total + (row.portalPaid ?? 0), 0) +
-        taxRows.reduce(
-          (total, row) =>
-            total +
-            (row.portalPaid ?? (row.paymentStatus === "PAID" ? (row.amount ?? 0) : 0)),
-          0,
-        ) +
-        pucRows.reduce((total, row) => total + (row.portalPaid ?? 0), 0),
-      commissionEarned: insuranceRows.reduce((total, row) => total + (row.commission ?? 0), 0),
-      collectedFromCustomers:
-        records.reduce((total, row) => total + (row.customerPaid ?? 0), 0) +
-        pucRows.reduce((total, row) => total + (row.customerPaid ?? 0), 0),
+      paidToPortal,
+      commissionEarned,
+      collectedFromCustomers,
+      profit: collectedFromCustomers + commissionEarned - paidToPortal,
       records: records.length + pucRows.length,
     };
   };
@@ -181,21 +189,28 @@ export async function paymentRecords(req: Request, res: Response) {
       paymentStatus?: string;
     },
     type: "Insurance" | "Tax" | "PUC",
-  ) => ({
-    id: String(row._id),
-    agentId: String(row.agentId),
-    agentName: agentNames.get(String(row.agentId)) ?? "",
-    type,
-    customerName: row.customerName ?? undefined,
-    mobile: row.mobile ?? undefined,
-    vehicleNumber: row.vehicleNumber ?? undefined,
-    paymentDate: (row.paymentDate ?? row.createdAt).toISOString(),
-    documentAmount: row.premium ?? row.amount ?? 0,
-    customerPaid: row.customerPaid ?? 0,
-    portalPaid:
-      row.portalPaid ?? (type === "Tax" && row.paymentStatus === "PAID" ? (row.amount ?? 0) : 0),
-    commission: row.commission ?? 0,
-  });
+  ) => {
+    const customerPaid = row.customerPaid ?? 0;
+    const portalPaid =
+      row.portalPaid ?? (type === "Tax" && row.paymentStatus === "PAID" ? (row.amount ?? 0) : 0);
+    const commission = row.commission ?? 0;
+
+    return {
+      id: String(row._id),
+      agentId: String(row.agentId),
+      agentName: agentNames.get(String(row.agentId)) ?? "",
+      type,
+      customerName: row.customerName ?? undefined,
+      mobile: row.mobile ?? undefined,
+      vehicleNumber: row.vehicleNumber ?? undefined,
+      paymentDate: (row.paymentDate ?? row.createdAt).toISOString(),
+      documentAmount: row.premium ?? row.amount ?? 0,
+      customerPaid,
+      portalPaid,
+      commission,
+      profit: customerPaid + (type === "Insurance" ? commission : 0) - portalPaid,
+    };
+  };
 
   const records = [
     ...insurance.map((row) => toRecord(row, "Insurance")),

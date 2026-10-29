@@ -90,10 +90,10 @@ export async function getAgent(req: Request, res: Response) {
 export async function createAgent(req: Request, res: Response) {
   const input = createAgentSchema.parse(req.body);
   
-  const existingEmail = await UserModel.findOne({ email: input.email.toLowerCase(), role: "AGENT" });
+  const existingEmail = await UserModel.findOne({ email: input.email.toLowerCase() });
   if (existingEmail) throw new HttpError(409, "Email already exists");
 
-  const existingMobile = await UserModel.findOne({ mobile: input.phone, role: "AGENT" });
+  const existingMobile = await UserModel.findOne({ mobile: input.phone });
   if (existingMobile) throw new HttpError(409, "Phone already exists");
 
   const passwordHash = await bcrypt.hash(input.password, 6);
@@ -124,12 +124,12 @@ export async function updateAgent(req: Request, res: Response) {
   if (!agent) throw new HttpError(404, "Agent not found");
 
   if (input.email && input.email.toLowerCase() !== agent.email) {
-    const existingEmail = await UserModel.findOne({ email: input.email.toLowerCase(), role: "AGENT", _id: { $ne: id } });
+    const existingEmail = await UserModel.findOne({ email: input.email.toLowerCase(), _id: { $ne: id } });
     if (existingEmail) throw new HttpError(409, "Email already exists");
   }
 
   if (input.phone && input.phone !== agent.mobile) {
-    const existingMobile = await UserModel.findOne({ mobile: input.phone, role: "AGENT", _id: { $ne: id } });
+    const existingMobile = await UserModel.findOne({ mobile: input.phone, _id: { $ne: id } });
     if (existingMobile) throw new HttpError(409, "Phone already exists");
   }
 

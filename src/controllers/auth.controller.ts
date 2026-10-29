@@ -90,7 +90,10 @@ export async function publicSignup(req: Request, res: Response) {
     $or: [{ email }, { mobile: input.mobile }],
   });
   if (existingUser) {
-    throw new HttpError(409, "An account with that email or mobile number already exists.");
+    throw new HttpError(
+      409,
+      "This email or mobile number is already registered. Sign in to your existing account or use different contact details.",
+    );
   }
 
   const passwordHash = await bcrypt.hash(input.password, 6);
