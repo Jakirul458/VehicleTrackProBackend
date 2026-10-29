@@ -52,7 +52,7 @@ Never commit `.env`, MongoDB credentials, JWT secrets, or real admin passwords. 
 
 ### Authentication
 - `POST /api/auth/login` - Login with email and password, returns JWT token
-- `POST /api/auth/register` - Create an Agent account and start a seven-day free trial
+- `POST /api/auth/register` - Create an Agent account and start a one-month free trial
 - `POST /api/auth/superadmin` - Super Admin exclusive login (role-based)
 - `POST /api/auth/setup-super-admin` - Create initial Super Admin (requires setup key)
 - `POST /api/auth/logout` - Logout
@@ -82,7 +82,7 @@ Never commit `.env`, MongoDB credentials, JWT secrets, or real admin passwords. 
 - `PUT /api/{insurance|tax|puc}/:id` - Update records (agents only)
 - `DELETE /api/{insurance|tax|puc}/:id` - Soft-delete records (agents only)
 
-Agents may start a seven-day free trial through `/api/auth/register`; validity is enforced at login and on authenticated requests. After expiry, the login page directs the agent to the public renewal page. Super Admins configure QR, bank/UPI, WhatsApp, Gmail, and monthly/yearly/lifetime plan prices from `/admin/settings`, then extend validity through `/api/admin/agents/:id/validity` after confirming payment. The initial default annual price and support WhatsApp are ₹4,999 and 6294527072; update them in Settings for your business. Super Admins can continue creating and managing agent accounts through `/api/admin/agents`. The retained Vehicle model is only used by the one-time legacy document migration and the existing report count; vehicle CRUD endpoints are not exposed.
+Agents may start a one-month free trial through `/api/auth/register`; validity is enforced at login and on authenticated requests. After expiry, the login page directs the agent to the public renewal page. Super Admins configure QR, bank/UPI, WhatsApp, Gmail, and monthly/yearly/lifetime plan prices from `/admin/settings`, then extend validity through `/api/admin/agents/:id/validity` after confirming payment. The initial default annual price and support WhatsApp are ₹4,999 and 6294527072; update them in Settings for your business. Super Admins can continue creating and managing agent accounts through `/api/admin/agents`. The retained Vehicle model is only used by the one-time legacy document migration and the existing report count; vehicle CRUD endpoints are not exposed.
 
 ### Health
 - `GET /api/health` - Health check endpoint

@@ -14,8 +14,7 @@ import {
   sendData,
 } from "../utils/http.js";
 
-const PUBLIC_TRIAL_DAYS = 7;
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const PUBLIC_TRIAL_MONTHS = 1;
 
 const loginSchema = z.object({
   email: z.string().trim().email().max(254),
@@ -97,6 +96,16 @@ export async function publicSignup(req: Request, res: Response) {
   }
 
   const passwordHash = await bcrypt.hash(input.password, 6);
+  const trialEndDate = new Date();
+  const signupDay = trialEndDate.getDate();
+  trialEndDate.setDate(1);
+  trialEndDate.setMonth(trialEndDate.getMonth() + PUBLIC_TRIAL_MONTHS);
+  const lastDayOfTrialMonth = new Date(
+    trialEndDate.getFullYear(),
+    trialEndDate.getMonth() + 1,
+    0,
+  ).getDate();
+  trialEndDate.setDate(Math.min(signupDay, lastDayOfTrialMonth));
   const user = await UserModel.create({
     fullName: input.fullName,
     businessName: input.businessName,
@@ -105,7 +114,7 @@ export async function publicSignup(req: Request, res: Response) {
     passwordHash,
     role: "AGENT",
     status: "ACTIVE",
-    trialEndDate: new Date(Date.now() + PUBLIC_TRIAL_DAYS * DAY_IN_MS),
+    trialEndDate,
   });
 
   await recordActivity(String(user._id), user.role, "REGISTER", "AGENT", String(user._id), {}, req.ip);
