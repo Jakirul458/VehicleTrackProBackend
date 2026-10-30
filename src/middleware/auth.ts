@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { env } from "../config/env.js";
-import { UserModel } from "../models/User.js";
+import { DEFAULT_MODULE_ACCESS, UserModel } from "../models/User.js";
 import { AuthSessionModel } from "../models/AuthSession.js";
 import {
   ACCOUNT_VALIDITY_EXPIRED_CODE,
@@ -55,7 +55,7 @@ export async function requireAuth(
     }
 
     const user = await UserModel.findById(payload.sub).select(
-      "role fullName email mobile businessName status trialEndDate",
+      "role fullName email mobile businessName status trialEndDate moduleAccess",
     );
     if (!user) throw new HttpError(401, "Your session is no longer valid.");
 
@@ -78,6 +78,10 @@ export async function requireAuth(
       mobile: user.mobile,
       ...(user.businessName ? { businessName: user.businessName } : {}),
       status: user.status,
+      moduleAccess: {
+        ...DEFAULT_MODULE_ACCESS,
+        ...(user.moduleAccess ?? {}),
+      },
       sessionId: String(activeSession._id),
     };
     next();
@@ -88,6 +92,23 @@ export async function requireAuth(
         : new HttpError(401, "Your session is invalid or expired."),
     );
   }
+}
+
+export function requireModuleAccess(req: Request, _res: Response, next: NextFunction) {
+  const user = req.user;
+  if (!user || user.role === "SUPER_ADMIN") return next();
+  const resource = req.params["resource"];
+  if (
+    (resource === "insurance" || resource === "tax" || resource === "puc") &&
+    !user.moduleAccess[resource]
+  ) {
+    const label =
+      resource === "puc" ? "PUC" : resource === "tax" ? "Tax" : "Insurance";
+    return next(
+      new HttpError(403, `${label} access is not enabled for your account. Contact the administrator.`),
+    );
+  }
+  next();
 }
 
 export function requireAdmin(req: Request, _res: Response, next: NextFunction) {

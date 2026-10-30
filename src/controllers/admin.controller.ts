@@ -1,10 +1,16 @@
 import type { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { UserModel } from "../models/User.js";
+import { DEFAULT_MODULE_ACCESS, UserModel } from "../models/User.js";
 import { ActivityLogModel, recordActivity } from "../models/ActivityLog.js";
 import { AuthSessionModel } from "../models/AuthSession.js";
 import { HttpError, sendData } from "../utils/http.js";
+
+const moduleAccessSchema = z.object({
+  insurance: z.boolean(),
+  tax: z.boolean(),
+  puc: z.boolean(),
+});
 
 const createAgentSchema = z.object({
   fullName: z.string().trim().min(2).max(120),
@@ -17,6 +23,7 @@ const createAgentSchema = z.object({
   state: z.string().trim().optional(),
   pinCode: z.string().trim().optional(),
   status: z.enum(["ACTIVE", "SUSPENDED"]),
+  moduleAccess: moduleAccessSchema.optional(),
 });
 
 const updateAgentSchema = z.object({
@@ -38,6 +45,7 @@ const updateStatusSchema = z.object({
 const updateValiditySchema = z.object({
   trialEndDate: z.string().date(),
 });
+const updateModuleAccessSchema = z.object({ moduleAccess: moduleAccessSchema });
 const resetAgentPasswordSchema = z.object({
   newPassword: z.string().min(6).max(200),
 });
@@ -124,6 +132,7 @@ export async function createAgent(req: Request, res: Response) {
     pinCode: input.pinCode,
     role: "AGENT",
     status: input.status,
+    moduleAccess: input.moduleAccess ?? DEFAULT_MODULE_ACCESS,
   });
 
   await logActivity(req.user!.id, req.user!.role, "CREATE", "AGENT", agent.id, {
@@ -168,6 +177,26 @@ export async function updateAgent(req: Request, res: Response) {
     agentName: agent.fullName,
   });
 
+  return sendData(res, agent);
+}
+
+export async function updateAgentModuleAccess(req: Request, res: Response) {
+  const { id } = req.params;
+  const { moduleAccess } = updateModuleAccessSchema.parse(req.body);
+  const agent = await UserModel.findOneAndUpdate(
+    { _id: id, role: "AGENT" },
+    { $set: { moduleAccess } },
+    { new: true, runValidators: true },
+  );
+  if (!agent) throw new HttpError(404, "Agent not found");
+  await logActivity(
+    req.user!.id,
+    req.user!.role,
+    "UPDATE_MODULE_ACCESS",
+    "AGENT",
+    agent.id,
+    { moduleAccess, agentName: agent.fullName },
+  );
   return sendData(res, agent);
 }
 

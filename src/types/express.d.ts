@@ -1,4 +1,4 @@
-import type { Role } from "../models/User.js";
+import type { ModuleAccess, Role } from "../models/User.js";
 
 export interface AuthUser {
   id: string;
@@ -9,6 +9,7 @@ export interface AuthUser {
   businessName?: string;
   agentCode?: string;
   status?: string;
+  moduleAccess: ModuleAccess;
   sessionId?: string;
 }
 

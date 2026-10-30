@@ -7,8 +7,9 @@ import { UserModel } from "../models/User.js";
 import { Types } from "mongoose";
 import { HttpError } from "../utils/http.js";
 import { sendData } from "../utils/http.js";
+import { DEFAULT_MODULE_ACCESS, type ModuleAccess } from "../models/User.js";
 
-async function summarize(agentId?: string) {
+async function summarize(agentId?: string, moduleAccess: ModuleAccess = DEFAULT_MODULE_ACCESS) {
   const filter: Record<string, unknown> = { deletedAt: null };
   const userFilter: Record<string, unknown> = { role: "AGENT" };
   if (agentId) {
@@ -21,9 +22,15 @@ async function summarize(agentId?: string) {
     UserModel.countDocuments(userFilter),
     UserModel.countDocuments({ ...userFilter, status: "ACTIVE" }),
     UserModel.countDocuments({ ...userFilter, status: "SUSPENDED" }),
-    InsuranceModel.find(filter).select("expiryDate").lean(),
-    TaxModel.find(filter).select("expiryDate").lean(),
-    PucModel.find(filter).select("expiryDate").lean(),
+    !agentId || moduleAccess.insurance
+      ? InsuranceModel.find(filter).select("expiryDate").lean()
+      : Promise.resolve([]),
+    !agentId || moduleAccess.tax
+      ? TaxModel.find(filter).select("expiryDate").lean()
+      : Promise.resolve([]),
+    !agentId || moduleAccess.puc
+      ? PucModel.find(filter).select("expiryDate").lean()
+      : Promise.resolve([]),
   ]);
 
   const today = new Date();
@@ -74,7 +81,7 @@ async function summarize(agentId?: string) {
 }
 
 export async function agentDashboard(req: Request, res: Response) {
-  return sendData(res, await summarize(req.user?.id));
+  return sendData(res, await summarize(req.user?.id, req.user?.moduleAccess));
 }
 
 export async function adminDashboard(_req: Request, res: Response) {

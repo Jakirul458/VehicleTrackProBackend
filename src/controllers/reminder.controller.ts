@@ -111,10 +111,13 @@ export async function listReminders(req: Request, res: Response) {
   const agentId = new Types.ObjectId(req.user.id);
   const pipeline = latestPerVehiclePipeline(agentId, cutoff);
 
+  const moduleAccess = req.user.moduleAccess;
   const [insurance, tax, puc] = await Promise.all([
-    InsuranceModel.aggregate<ReminderDocument>(pipeline),
-    TaxModel.aggregate<ReminderDocument>(pipeline),
-    PucModel.aggregate<ReminderDocument>(pipeline),
+    moduleAccess.insurance
+      ? InsuranceModel.aggregate<ReminderDocument>(pipeline)
+      : Promise.resolve([]),
+    moduleAccess.tax ? TaxModel.aggregate<ReminderDocument>(pipeline) : Promise.resolve([]),
+    moduleAccess.puc ? PucModel.aggregate<ReminderDocument>(pipeline) : Promise.resolve([]),
   ]);
 
   const items = [

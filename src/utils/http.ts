@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { DEFAULT_MODULE_ACCESS } from "../models/User.js";
 
 export class HttpError extends Error {
   constructor(
@@ -34,6 +35,10 @@ export function publicUser(user: Record<string, unknown>) {
     pinCode: user["pinCode"],
     agentCode: user["agentCode"],
     status: user["status"],
+    moduleAccess: {
+      ...DEFAULT_MODULE_ACCESS,
+      ...(user["moduleAccess"] as Partial<typeof DEFAULT_MODULE_ACCESS> | undefined),
+    },
     trialEndDate: user["trialEndDate"],
     createdAt: user["createdAt"],
     updatedAt: user["updatedAt"],

@@ -1,6 +1,17 @@
 import { Schema, model } from "mongoose";
 
 export type Role = "SUPER_ADMIN" | "AGENT";
+export type ModuleAccess = {
+  insurance: boolean;
+  tax: boolean;
+  puc: boolean;
+};
+
+export const DEFAULT_MODULE_ACCESS: ModuleAccess = {
+  insurance: true,
+  tax: true,
+  puc: true,
+};
 
 const userSchema = new Schema(
   {
@@ -14,6 +25,11 @@ const userSchema = new Schema(
     city: { type: String, trim: true },
     state: { type: String, trim: true },
     pinCode: { type: String, trim: true },
+    moduleAccess: {
+      insurance: { type: Boolean, default: true },
+      tax: { type: Boolean, default: true },
+      puc: { type: Boolean, default: true },
+    },
     status: { type: String, enum: ["ACTIVE", "SUSPENDED"], default: "ACTIVE" },
     trialEndDate: { type: Date },
   },

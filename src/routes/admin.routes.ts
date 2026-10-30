@@ -4,6 +4,7 @@ import {
   getAgent,
   createAgent,
   updateAgent,
+  updateAgentModuleAccess,
   updateAgentStatus,
   updateAgentValidity,
   resetAgentPassword,
@@ -30,6 +31,12 @@ router.get("/agents", requireAuth, requireAdmin, listAgents);
 router.post("/agents", requireAuth, requireAdmin, createAgent);
 router.get("/agents/:id", requireAuth, requireAdmin, getAgent);
 router.put("/agents/:id", requireAuth, requireAdmin, updateAgent);
+router.patch(
+  "/agents/:id/module-access",
+  requireAuth,
+  requireAdmin,
+  updateAgentModuleAccess,
+);
 router.patch(
   "/agents/:id/status",
   requireAuth,
