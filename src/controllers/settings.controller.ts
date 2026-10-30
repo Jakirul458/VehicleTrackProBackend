@@ -20,6 +20,13 @@ const settingsSchema = z.object({
   monthlyPrice: z.number().min(0),
   yearlyPrice: z.number().min(0),
   lifetimePrice: z.number().min(0),
+  insuranceOnlyPrice: z.number().min(0),
+  roadTaxOnlyPrice: z.number().min(0),
+  pucOnlyPrice: z.number().min(0),
+  taxPucPrice: z.number().min(0),
+  insuranceTaxPrice: z.number().min(0),
+  insurancePucPrice: z.number().min(0),
+  allModulesPrice: z.number().min(0),
 });
 
 async function getPlatformSettings() {

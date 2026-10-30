@@ -15,6 +15,13 @@ const platformSettingsSchema = new Schema(
     monthlyPrice: { type: Number, min: 0, default: 0 },
     yearlyPrice: { type: Number, min: 0, default: 4999 },
     lifetimePrice: { type: Number, min: 0, default: 0 },
+    insuranceOnlyPrice: { type: Number, min: 0, default: 1999 },
+    roadTaxOnlyPrice: { type: Number, min: 0, default: 999 },
+    pucOnlyPrice: { type: Number, min: 0, default: 999 },
+    taxPucPrice: { type: Number, min: 0, default: 1799 },
+    insuranceTaxPrice: { type: Number, min: 0, default: 2799 },
+    insurancePucPrice: { type: Number, min: 0, default: 2799 },
+    allModulesPrice: { type: Number, min: 0, default: 3600 },
   },
   { timestamps: true, versionKey: false },
 );
