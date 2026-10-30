@@ -51,11 +51,12 @@ Never commit `.env`, MongoDB credentials, JWT secrets, or real admin passwords. 
 ## API
 
 ### Authentication
-- `POST /api/auth/login` - Login with email and password, returns JWT token
+- `POST /api/auth/login` - Login with email and password, returns JWT token; optionally accepts browser-provided `location` coordinates (latitude, longitude, accuracy) for the session activity log
 - `POST /api/auth/register` - Create an Agent account and start a one-month free trial
 - `POST /api/auth/superadmin` - Super Admin exclusive login (role-based)
 - `POST /api/auth/setup-super-admin` - Create initial Super Admin (requires setup key)
 - `POST /api/auth/logout` - Logout
+- `POST /api/auth/logout-on-close` - Best-effort logout when the browser tab closes (text/plain JWT body)
 - `POST /api/auth/change-password` - Change user password (authenticated)
 - `GET /api/auth/me` - Get current user info (authenticated)
 
@@ -70,7 +71,10 @@ Never commit `.env`, MongoDB credentials, JWT secrets, or real admin passwords. 
 - `PATCH /api/admin/agents/:id/password` - Reset agent password as Super Admin
 - `GET /api/admin/settings`, `PUT /api/admin/settings` - Read/update renewal payment details and plan prices
 - `DELETE /api/admin/agents/:id` - Delete agent
-- `GET /api/admin/activity` - View activity log
+- `GET /api/admin/activity` - View/filter activity log by user (`search`), action, IP, and date (`from`, `to`)
+- `GET /api/admin/activity/export` - Export matching activity as CSV (up to 10,000 rows)
+- `GET /api/admin/sessions` - List active login sessions
+- `DELETE /api/admin/sessions/:id` - Revoke an active session
 
 ### Agent (Authenticated agents only)
 - `GET /api/reports/dashboard` - Agent-specific statistics
@@ -89,7 +93,7 @@ Agents may start a one-month free trial through `/api/auth/register`; validity i
 
 ## Authentication
 
-The API uses JWT tokens for authentication. Include the token in the Authorization header:
+The API uses JWT tokens for authentication. Include the token in the Authorization header. Login sessions expire after 30 minutes without activity and have a 12-hour maximum lifetime. Activity is retained for 90 days; MongoDB TTL cleanup runs asynchronously.
 ```
 Authorization: Bearer <your-jwt-token>
 ```

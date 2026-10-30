@@ -9,6 +9,7 @@ export interface AuthUser {
   businessName?: string;
   agentCode?: string;
   status?: string;
+  sessionId?: string;
 }
 
 declare global {
