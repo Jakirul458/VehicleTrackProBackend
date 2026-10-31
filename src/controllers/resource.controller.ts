@@ -4,6 +4,7 @@ import { z } from "zod";
 import { InsuranceModel } from "../models/Insurance.js";
 import { PucModel } from "../models/Puc.js";
 import { TaxModel } from "../models/Tax.js";
+import { UserModel } from "../models/User.js";
 import { recordActivity } from "../models/ActivityLog.js";
 import { HttpError, sendData } from "../utils/http.js";
 
@@ -114,7 +115,20 @@ export async function listResource(req: Request, res: Response) {
     filter["$or"] = searchable.map((field) => ({ [field]: expression }));
   }
   const rows = await model.find(filter).sort({ createdAt: -1, _id: -1 }).limit(500);
-  return sendData(res, rows);
+  if (req.user?.role !== "SUPER_ADMIN") return sendData(res, rows);
+
+  const agentIds = [...new Set(rows.map((row) => String(row.get("agentId"))))];
+  const agents = await UserModel.find({ _id: { $in: agentIds } })
+    .select("_id fullName")
+    .lean();
+  const agentNames = new Map(agents.map((agent) => [String(agent._id), agent.fullName]));
+  return sendData(
+    res,
+    rows.map((row) => ({
+      ...row.toJSON(),
+      agentName: agentNames.get(String(row.get("agentId"))) ?? "Unknown agent",
+    })),
+  );
 }
 
 export async function createResource(req: Request, res: Response) {
