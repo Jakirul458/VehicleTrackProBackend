@@ -80,6 +80,17 @@ async function summarize(agentId?: string, moduleAccess: ModuleAccess = DEFAULT_
   };
 }
 
+function insuranceCommissionEarned(row: {
+  premium?: number | null;
+  commission?: number | null;
+  commissionPercentage?: number | null;
+}) {
+  if (typeof row.commissionPercentage === "number") {
+    return ((row.premium ?? 0) * row.commissionPercentage) / 100;
+  }
+  return row.commission ?? 0;
+}
+
 export async function agentDashboard(req: Request, res: Response) {
   return sendData(res, await summarize(req.user?.id, req.user?.moduleAccess));
 }
@@ -94,7 +105,9 @@ export async function agentFinancialSummary(req: Request, res: Response) {
     throw new HttpError(401, "Your agent account is unavailable.");
   }
   const [insurance, tax, puc] = await Promise.all([
-    InsuranceModel.find({ agentId, deletedAt: null }).select("createdAt paymentDate portalPaid customerPaid commission").lean(),
+    InsuranceModel.find({ agentId, deletedAt: null })
+      .select("createdAt paymentDate premium portalPaid customerPaid commission commissionPercentage")
+      .lean(),
     TaxModel.find({ agentId, deletedAt: null }).select("createdAt paymentDate amount portalPaid customerPaid paymentStatus").lean(),
     PucModel.find({ agentId, deletedAt: null }).select("createdAt paymentDate portalPaid customerPaid").lean(),
   ]);
@@ -128,18 +141,39 @@ export async function agentFinancialSummary(req: Request, res: Response) {
       ) +
       pucRows.reduce((total, row) => total + (row.portalPaid ?? 0), 0);
     const commissionEarned = insuranceRows.reduce(
-      (total, row) => total + (row.commission ?? 0),
+      (total, row) => total + insuranceCommissionEarned(row),
       0,
     );
     const collectedFromCustomers =
       records.reduce((total, row) => total + (row.customerPaid ?? 0), 0) +
       pucRows.reduce((total, row) => total + (row.customerPaid ?? 0), 0);
 
+    const insuranceProfit = insuranceRows.reduce(
+      (total, row) =>
+        total +
+        ((row.customerPaid ?? 0) +
+          insuranceCommissionEarned(row) -
+          (row.portalPaid ?? 0)) *
+          0.98,
+      0,
+    );
+    const taxProfit = taxRows.reduce(
+      (total, row) =>
+        total +
+        (row.customerPaid ?? 0) -
+        (row.portalPaid ?? (row.paymentStatus === "PAID" ? (row.amount ?? 0) : 0)),
+      0,
+    );
+    const pucProfit = pucRows.reduce(
+      (total, row) => total + (row.customerPaid ?? 0) - (row.portalPaid ?? 0),
+      0,
+    );
+
     return {
       paidToPortal,
       commissionEarned,
       collectedFromCustomers,
-      profit: collectedFromCustomers + commissionEarned - paidToPortal,
+      profit: insuranceProfit + taxProfit + pucProfit,
       records: records.length + pucRows.length,
     };
   };
@@ -163,7 +197,7 @@ export async function paymentRecords(req: Request, res: Response) {
 
   const [insurance, tax, puc] = await Promise.all([
     InsuranceModel.find(filter)
-      .select("agentId customerName mobile vehicleNumber paymentDate createdAt premium portalPaid customerPaid commission")
+      .select("agentId customerName mobile vehicleNumber paymentDate createdAt premium portalPaid customerPaid commission commissionPercentage")
       .lean(),
     TaxModel.find(filter)
       .select("agentId customerName mobile vehicleNumber paymentDate createdAt amount portalPaid customerPaid paymentStatus")
@@ -193,6 +227,7 @@ export async function paymentRecords(req: Request, res: Response) {
       portalPaid?: number | null;
       customerPaid?: number | null;
       commission?: number | null;
+      commissionPercentage?: number | null;
       paymentStatus?: string;
     },
     type: "Insurance" | "Tax" | "PUC",
@@ -200,7 +235,8 @@ export async function paymentRecords(req: Request, res: Response) {
     const customerPaid = row.customerPaid ?? 0;
     const portalPaid =
       row.portalPaid ?? (type === "Tax" && row.paymentStatus === "PAID" ? (row.amount ?? 0) : 0);
-    const commission = row.commission ?? 0;
+    const commission =
+      type === "Insurance" ? insuranceCommissionEarned(row) : (row.commission ?? 0);
 
     return {
       id: String(row._id),
@@ -215,7 +251,10 @@ export async function paymentRecords(req: Request, res: Response) {
       customerPaid,
       portalPaid,
       commission,
-      profit: customerPaid + (type === "Insurance" ? commission : 0) - portalPaid,
+      profit:
+        type === "Insurance"
+          ? (customerPaid + commission - portalPaid) * 0.98
+          : customerPaid - portalPaid,
     };
   };
 

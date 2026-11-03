@@ -24,6 +24,7 @@ const insuranceSchema = z.object({
   portalPaid: z.coerce.number().min(0).optional(),
   customerPaid: z.coerce.number().min(0).optional(),
   commission: z.coerce.number().min(0).optional(),
+  commissionPercentage: z.coerce.number().min(0).max(100).optional(),
   paymentDate: z.coerce.date().optional(),
   startDate: z.coerce.date().optional(),
   expiryDate: z.coerce.date().optional(),

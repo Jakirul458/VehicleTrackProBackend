@@ -17,6 +17,7 @@ const insuranceSchema = new Schema(
     portalPaid: { type: Number, min: 0 },
     customerPaid: { type: Number, min: 0 },
     commission: { type: Number, min: 0 },
+    commissionPercentage: { type: Number, min: 0, max: 100 },
     paymentDate: { type: Date, default: Date.now, index: true },
     startDate: { type: Date },
     expiryDate: { type: Date, index: true },
