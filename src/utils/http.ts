@@ -35,9 +35,12 @@ export function publicUser(user: Record<string, unknown>) {
     pinCode: user["pinCode"],
     agentCode: user["agentCode"],
     status: user["status"],
+    subscriptionStatus: user["subscriptionStatus"],
+    subscriptionPlanName: user["subscriptionPlanName"],
     moduleAccess: {
       ...DEFAULT_MODULE_ACCESS,
-      ...(user["moduleAccess"] as Partial<typeof DEFAULT_MODULE_ACCESS> | undefined),
+      ...(user["moduleAccess"] as
+        Partial<typeof DEFAULT_MODULE_ACCESS> | undefined),
     },
     trialEndDate: user["trialEndDate"],
     createdAt: user["createdAt"],

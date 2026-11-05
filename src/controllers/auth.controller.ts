@@ -7,14 +7,7 @@ import { UserModel } from "../models/User.js";
 import { ActivityLogModel, recordActivity } from "../models/ActivityLog.js";
 import { AuthSessionModel, type LoginLocation } from "../models/AuthSession.js";
 import type { Role } from "../models/User.js";
-import {
-  ACCOUNT_VALIDITY_EXPIRED_CODE,
-  ACCOUNT_VALIDITY_EXPIRED_MESSAGE,
-  HttpError,
-  isValidityExpired,
-  publicUser,
-  sendData,
-} from "../utils/http.js";
+import { HttpError, publicUser, sendData } from "../utils/http.js";
 
 const PUBLIC_TRIAL_MONTHS = 1;
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
@@ -215,19 +208,6 @@ export async function login(req: Request, res: Response) {
       "ACCOUNT_SUSPENDED",
     );
   }
-  if (user.role === "AGENT" && isValidityExpired(user.trialEndDate)) {
-    await recordFailedLogin(
-      req,
-      email,
-      { id: String(user._id), role: user.role },
-      "ACCOUNT_VALIDITY_EXPIRED",
-    );
-    throw new HttpError(
-      403,
-      ACCOUNT_VALIDITY_EXPIRED_MESSAGE,
-      ACCOUNT_VALIDITY_EXPIRED_CODE,
-    );
-  }
   const token = await createLoginSession(user, req, input.location);
   return sendData(res, {
     user: publicUser(user.toObject() as unknown as Record<string, unknown>),
@@ -267,6 +247,7 @@ export async function publicSignup(req: Request, res: Response) {
     passwordHash,
     role: "AGENT",
     status: "ACTIVE",
+    subscriptionStatus: "FREE",
     trialEndDate,
   });
 

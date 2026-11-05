@@ -20,6 +20,20 @@ import {
   updatePlatformSettings,
 } from "../controllers/settings.controller.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import {
+  getSubscriptionPayment,
+  listSubscriptionPayments,
+  reviewSubscriptionPayment,
+  listAgentSubscriptions,
+  issueAgentSubscriptionInvoice,
+  setAgentSubscription,
+} from "../controllers/subscription-payments.controller.js";
+import {
+  createPlan,
+  deletePlan,
+  listPlans,
+  updatePlan,
+} from "../controllers/plans.controller.js";
 
 const router = Router();
 
@@ -56,8 +70,48 @@ router.patch(
   resetAgentPassword,
 );
 router.delete("/agents/:id", requireAuth, requireAdmin, deleteAgent);
+router.get(
+  "/agent-subscriptions",
+  requireAuth,
+  requireAdmin,
+  listAgentSubscriptions,
+);
+router.patch(
+  "/agents/:id/subscription",
+  requireAuth,
+  requireAdmin,
+  setAgentSubscription,
+);
+router.post(
+  "/agents/:id/subscription-invoices",
+  requireAuth,
+  requireAdmin,
+  issueAgentSubscriptionInvoice,
+);
 router.get("/settings", requireAuth, requireAdmin, getPublicSettings);
 router.put("/settings", requireAuth, requireAdmin, updatePlatformSettings);
+router.get("/plans", requireAuth, requireAdmin, listPlans);
+router.post("/plans", requireAuth, requireAdmin, createPlan);
+router.put("/plans/:id", requireAuth, requireAdmin, updatePlan);
+router.delete("/plans/:id", requireAuth, requireAdmin, deletePlan);
+router.get(
+  "/subscription-payments",
+  requireAuth,
+  requireAdmin,
+  listSubscriptionPayments,
+);
+router.get(
+  "/subscription-payments/:id",
+  requireAuth,
+  requireAdmin,
+  getSubscriptionPayment,
+);
+router.patch(
+  "/subscription-payments/:id",
+  requireAuth,
+  requireAdmin,
+  reviewSubscriptionPayment,
+);
 
 // Activity log
 router.get("/activity/export", requireAuth, requireAdmin, exportActivity);

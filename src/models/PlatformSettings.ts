@@ -5,6 +5,18 @@ const platformSettingsSchema = new Schema(
     key: { type: String, required: true, unique: true, default: "platform" },
     supportWhatsapp: { type: String, trim: true, default: "6294527072" },
     supportEmail: { type: String, trim: true, lowercase: true, default: "" },
+    businessName: { type: String, trim: true, default: "VehicleTrack Pro" },
+    businessAddress: { type: String, trim: true, default: "" },
+    businessGstin: { type: String, trim: true, uppercase: true, default: "" },
+    invoiceGstEnabled: { type: Boolean, default: false },
+    invoiceGstRate: { type: Number, min: 0, max: 100, default: 18 },
+    invoiceAuthorizedSignatory: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+      default: "",
+    },
+    invoiceSignatureImage: { type: String, default: "" },
     qrCodeUrl: { type: String, trim: true, default: "" },
     upiId: { type: String, trim: true, default: "" },
     bankAccountName: { type: String, trim: true, default: "" },
@@ -22,8 +34,12 @@ const platformSettingsSchema = new Schema(
     insuranceTaxPrice: { type: Number, min: 0, default: 2799 },
     insurancePucPrice: { type: Number, min: 0, default: 2799 },
     allModulesPrice: { type: Number, min: 0, default: 3600 },
+    planCatalogInitialized: { type: Boolean, default: false, select: false },
   },
   { timestamps: true, versionKey: false },
 );
 
-export const PlatformSettingsModel = model("PlatformSettings", platformSettingsSchema);
+export const PlatformSettingsModel = model(
+  "PlatformSettings",
+  platformSettingsSchema,
+);

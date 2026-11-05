@@ -15,6 +15,22 @@ export async function requireAuth(
   _res: Response,
   next: NextFunction,
 ) {
+  await authenticate(req, next, false);
+}
+
+export async function requirePaymentAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
+  await authenticate(req, next, true);
+}
+
+async function authenticate(
+  req: Request,
+  next: NextFunction,
+  allowExpired: boolean,
+) {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -62,7 +78,11 @@ export async function requireAuth(
     if (user.status === "SUSPENDED") {
       throw new HttpError(403, "This account is suspended.");
     }
-    if (user.role === "AGENT" && isValidityExpired(user.trialEndDate)) {
+    if (
+      !allowExpired &&
+      user.role === "AGENT" &&
+      isValidityExpired(user.trialEndDate)
+    ) {
       throw new HttpError(
         403,
         ACCOUNT_VALIDITY_EXPIRED_MESSAGE,
@@ -94,7 +114,11 @@ export async function requireAuth(
   }
 }
 
-export function requireModuleAccess(req: Request, _res: Response, next: NextFunction) {
+export function requireModuleAccess(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
   const user = req.user;
   if (!user || user.role === "SUPER_ADMIN") return next();
   const resource = req.params["resource"];
@@ -105,7 +129,10 @@ export function requireModuleAccess(req: Request, _res: Response, next: NextFunc
     const label =
       resource === "puc" ? "PUC" : resource === "tax" ? "Tax" : "Insurance";
     return next(
-      new HttpError(403, `${label} access is not enabled for your account. Contact the administrator.`),
+      new HttpError(
+        403,
+        `${label} access is not enabled for your account. Contact the administrator.`,
+      ),
     );
   }
   next();

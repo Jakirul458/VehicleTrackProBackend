@@ -1,6 +1,7 @@
 import { Schema, model } from "mongoose";
 
 export type Role = "SUPER_ADMIN" | "AGENT";
+export type SubscriptionStatus = "FREE" | "PENDING" | "PAID" | "REJECTED";
 export type ModuleAccess = {
   insurance: boolean;
   tax: boolean;
@@ -17,7 +18,13 @@ const userSchema = new Schema(
   {
     role: { type: String, enum: ["SUPER_ADMIN", "AGENT"], required: true },
     fullName: { type: String, required: true, trim: true, maxlength: 120 },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
     mobile: { type: String, required: true, unique: true, trim: true },
     passwordHash: { type: String, required: true, select: false },
     businessName: { type: String, trim: true, maxlength: 160 },
@@ -31,9 +38,15 @@ const userSchema = new Schema(
       puc: { type: Boolean, default: true },
     },
     status: { type: String, enum: ["ACTIVE", "SUSPENDED"], default: "ACTIVE" },
+    subscriptionStatus: {
+      type: String,
+      enum: ["FREE", "PENDING", "PAID", "REJECTED"],
+      default: "FREE",
+    },
+    subscriptionPlanName: { type: String, trim: true, default: "" },
     trialEndDate: { type: Date },
   },
-  { timestamps: true, versionKey: false }
+  { timestamps: true, versionKey: false },
 );
 
 userSchema.set("toJSON", {
