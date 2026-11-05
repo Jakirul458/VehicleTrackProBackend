@@ -34,6 +34,40 @@ const reviewSchema = z.discriminatedUnion("status", [
     rejectReason: z.string().trim().max(500).default(""),
   }),
 ]);
+const invoicePartyEditSchema = z
+  .object({
+    fullName: z.string().trim().max(120),
+    businessName: z.string().trim().max(160),
+    email: z
+      .string()
+      .trim()
+      .max(254)
+      .refine(
+        (value) => value === "" || z.string().email().safeParse(value).success,
+        "Enter a valid email address.",
+      ),
+    mobile: z.string().trim().max(30),
+    address: z.string().trim().max(300),
+    city: z.string().trim().max(100),
+    state: z.string().trim().max(100),
+    pinCode: z.string().trim().max(20),
+    gstin: z.string().trim().max(20),
+  })
+  .partial();
+const invoiceEditSchema = z
+  .object({
+    invoiceNumber: z.string().trim().min(1).max(50),
+    planName: z.string().trim().min(1).max(120),
+    planDescription: z.string().trim().max(500),
+    paymentDate: z.string().date(),
+    authorizedSignatory: z.string().trim().max(120),
+    customer: invoicePartyEditSchema,
+    seller: invoicePartyEditSchema,
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "Provide at least one invoice field to update.",
+  });
 const invoiceOptionsSchema = z.object({
   gstEnabled: z.boolean().default(false),
   gstRate: z.number().min(0).max(100).default(18),
@@ -42,7 +76,12 @@ const invoiceOptionsSchema = z.object({
 const idSchema = z
   .string()
   .regex(/^[a-f\d]{24}$/i, "Invalid subscription payment ID.");
-const paymentStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED"]);
+const paymentStatusSchema = z.enum([
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+  "VOIDED",
+]);
 
 function partySnapshot(
   party: {
@@ -242,6 +281,79 @@ export async function getMyInvoice(req: Request, res: Response) {
       "The approved subscription invoice was not found.",
     );
   return sendData(res, await invoiceResponse(invoice));
+}
+
+export async function updateSubscriptionInvoice(req: Request, res: Response) {
+  const id = idSchema.parse(req.params["id"]);
+  const input = invoiceEditSchema.parse(req.body);
+  const filter: Record<string, unknown> = { _id: id, status: "APPROVED" };
+  if (req.user?.role !== "SUPER_ADMIN") filter.agentId = req.user?.id;
+
+  const invoice = await SubscriptionPaymentModel.findOne(filter);
+  if (!invoice) {
+    throw new HttpError(404, "The approved subscription invoice was not found.");
+  }
+  if (input.paymentDate && input.paymentDate > indiaDateString(new Date())) {
+    throw new HttpError(422, "Payment date cannot be in the future.");
+  }
+
+  if (
+    input.invoiceNumber &&
+    input.invoiceNumber !== invoice.invoiceNumber &&
+    (await SubscriptionPaymentModel.exists({
+      invoiceNumber: input.invoiceNumber,
+      _id: { $ne: invoice._id },
+    }))
+  ) {
+    throw new HttpError(409, "That invoice number is already in use.");
+  }
+
+  if (input.invoiceNumber !== undefined)
+    invoice.invoiceNumber = input.invoiceNumber;
+  if (input.planName !== undefined) invoice.planName = input.planName;
+  if (input.planDescription !== undefined)
+    invoice.planDescription = input.planDescription;
+  if (input.paymentDate !== undefined)
+    invoice.paymentDate = new Date(`${input.paymentDate}T00:00:00.000Z`);
+  if (input.authorizedSignatory !== undefined)
+    invoice.authorizedSignatory = input.authorizedSignatory;
+  if (input.customer) {
+    for (const [key, value] of Object.entries(input.customer)) {
+      if (value !== undefined) invoice.set(`customer.${key}`, value);
+    }
+  }
+  if (input.seller) {
+    for (const [key, value] of Object.entries(input.seller)) {
+      if (value !== undefined) invoice.set(`seller.${key}`, value);
+    }
+    if (input.seller.gstin !== undefined && input.seller.gstin !== "") {
+      invoice.seller.gstin = input.seller.gstin.toUpperCase();
+    }
+  }
+
+  await invoice.save();
+  return sendData(res, await invoiceResponse(invoice));
+}
+
+export async function voidSubscriptionInvoice(req: Request, res: Response) {
+  const id = idSchema.parse(req.params["id"]);
+  const filter: Record<string, unknown> = { _id: id, status: "APPROVED" };
+  if (req.user?.role !== "SUPER_ADMIN") filter.agentId = req.user?.id;
+  const invoice = await SubscriptionPaymentModel.findOneAndUpdate(
+    filter,
+    {
+      $set: {
+        status: "VOIDED",
+        voidedAt: new Date(),
+        ...(req.user?.id ? { voidedBy: req.user.id } : {}),
+      },
+    },
+    { new: true, runValidators: true },
+  );
+  if (!invoice) {
+    throw new HttpError(404, "The approved subscription invoice was not found.");
+  }
+  return sendData(res, { id: String(invoice._id) });
 }
 
 export async function listSubscriptionPayments(req: Request, res: Response) {

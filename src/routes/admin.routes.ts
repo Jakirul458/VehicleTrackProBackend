@@ -27,6 +27,8 @@ import {
   listAgentSubscriptions,
   issueAgentSubscriptionInvoice,
   setAgentSubscription,
+  updateSubscriptionInvoice,
+  voidSubscriptionInvoice,
 } from "../controllers/subscription-payments.controller.js";
 import {
   createPlan,
@@ -111,6 +113,18 @@ router.patch(
   requireAuth,
   requireAdmin,
   reviewSubscriptionPayment,
+);
+router.put(
+  "/subscription-payments/:id",
+  requireAuth,
+  requireAdmin,
+  updateSubscriptionInvoice,
+);
+router.delete(
+  "/subscription-payments/:id",
+  requireAuth,
+  requireAdmin,
+  voidSubscriptionInvoice,
 );
 
 // Activity log
